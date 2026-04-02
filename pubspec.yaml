@@ -40,6 +40,9 @@ dependencies:
     sdk: flutter
   google_fonts: ^8.0.2
   envied: ^1.3.4
+  phosphor_flutter: ^2.1.0
+  shared_preferences: ^2.5.5
+  delightful_toast: ^1.1.0
 
 dev_dependencies:
   flutter_test:

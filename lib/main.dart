@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'package:developers/env/env.dart';
-import 'package:developers/page/home.dart';
+import 'package:developers/utils/page.dart';
+import 'package:developers/utils/uid.dart';
+import 'package:developers/utils/user_datas.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -13,7 +16,9 @@ void loadingSysManager(bool value) {
 
 ZeytinClient zeytin = ZeytinClient();
 PManager<bool> loadingSys = PManager(false);
-
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+List<ZeytinUserModel> cacheUsers = [];
+ZeytinUserModel? myProfile;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Portakal.init(
@@ -31,12 +36,43 @@ void main() async {
     email: Env.zeytinEmail,
     password: Env.zeytinPassword,
   );
-  runApp(const MyApp());
+  await UsersDatabase.getUser();
+  String? uid = await getUID();
+  if (uid != null) {
+    var profile = UsersDatabase.getUserWithUID(uid: uid);
+    if (profile != null) {
+      myProfile = profile;
+    }
+  }
+  runApp(Developers(isSignIn: myProfile != null));
+  Timer.periodic(Duration(seconds: 20), (timer) async {
+    String? myUID = await getUID();
+    if (myUID == null) return;
+    if (myProfile == null) return;
+    await ZeytinUser(zeytin).updateUserActive(myProfile!);
+  });
+
+  zeytin.watchBox(box: "users").listen((event) {
+    var user = ZeytinUserModel.fromJson(event["data"]);
+    bool isContain = cacheUsers.any((element) => user.uid == element.uid);
+    if (!isContain) {
+      cacheUsers.add(user);
+    } else {
+      int index = cacheUsers.indexWhere((element) => user.uid == element.uid);
+      cacheUsers[index] = user;
+    }
+  });
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class Developers extends StatefulWidget {
+  final bool isSignIn;
+  const Developers({super.key, required this.isSignIn});
 
+  @override
+  State<Developers> createState() => _DevelopersState();
+}
+
+class _DevelopersState extends State<Developers> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -82,7 +118,9 @@ class MyApp extends StatelessWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [Locale('tr', 'TR')],
-      home: HomePage(),
+      initialRoute: widget.isSignIn ? JeaPage.home.name : JeaPage.login.name,
+      onGenerateRoute: JeaPage.onGenerate,
+      home: SizedBox(),
     );
   }
 }
